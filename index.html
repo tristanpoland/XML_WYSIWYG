@@ -1,0 +1,1237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Monaco + WYSIWYG XML Editor</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --amoled-black: #000000;
+      --dark-gray: #121212;
+      --medium-gray: #1e1e1e;
+      --light-gray: #2d2d2d;
+      --highlight: #4d4d4d;
+      --text: #e0e0e0;
+      --accent: #bb86fc;
+      --error: #cf6679;
+      --element-color: #64b5f6; /* XML element color */
+      --attribute-color: #a5d6a7; /* XML attribute color */
+      --value-color: #ba68c8; /* XML attribute value color */
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--amoled-black);
+      color: var(--text);
+      height: 100vh;
+      overflow: hidden;
+    }
+    
+    .container {
+      display: flex;
+      height: 100vh;
+      width: 100%;
+    }
+    
+    .editor-container {
+      width: 50%;
+      height: 100%;
+      overflow: hidden;
+      border-right: 1px solid var(--highlight);
+    }
+    
+    #monaco-editor {
+      width: 100%;
+      height: 100%;
+    }
+    
+    .wysiwyg-container {
+      width: 50%;
+      height: 100%;
+      overflow: auto;
+      padding: 16px;
+      background-color: var(--amoled-black);
+    }
+    
+    .xml-node {
+      margin-bottom: 8px;
+      border-left: 2px solid var(--highlight);
+      padding-left: 8px;
+    }
+    
+    .xml-element-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 4px;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      transition: background-color 0.2s;
+    }
+    
+    .xml-element-header:hover {
+      background-color: var(--light-gray);
+    }
+    
+    .xml-element-name {
+      font-weight: bold;
+      color: var(--element-color);
+      margin-right: 8px;
+    }
+    
+    .xml-attribute {
+      display: inline-flex;
+      align-items: center;
+      margin-right: 8px;
+    }
+    
+    .xml-attribute-name {
+      color: var(--attribute-color);
+      margin-right: 4px;
+    }
+    
+    .xml-attribute-value {
+      color: var(--value-color);
+      background-color: var(--dark-gray);
+      border: 1px solid var(--highlight);
+      padding: 2px 4px;
+      border-radius: 4px;
+      font-family: monospace;
+    }
+    
+    .xml-attribute-value:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    
+    .xml-text-content {
+      color: var(--text);
+      background-color: var(--dark-gray);
+      border: 1px solid var(--highlight);
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-family: monospace;
+      margin: 4px 0;
+      width: 100%;
+    }
+    
+    .xml-text-content:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    
+    .xml-children {
+      margin-left: 16px;
+    }
+    
+    .xml-controls {
+      margin-top: 16px;
+      display: flex;
+      gap: 8px;
+    }
+    
+    button {
+      background-color: var(--dark-gray);
+      color: var(--text);
+      border: 1px solid var(--highlight);
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    
+    button:hover {
+      background-color: var(--medium-gray);
+    }
+    
+    button.primary {
+      background-color: var(--accent);
+      color: var(--amoled-black);
+    }
+    
+    button.primary:hover {
+      background-color: #a178d8;
+    }
+    
+    .collapse-icon {
+      margin-right: 4px;
+      width: 16px;
+      height: 16px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s;
+      color: var(--text);
+    }
+    
+    .collapsed .collapse-icon {
+      transform: rotate(-90deg);
+    }
+    
+    .collapsed .xml-children {
+      display: none;
+    }
+    
+    .action-buttons {
+      display: flex;
+      gap: 4px;
+      margin-left: auto;
+    }
+    
+    .add-element-btn, .add-attribute-btn, .add-text-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      background-color: var(--dark-gray);
+      color: var(--accent);
+      border: 1px solid var(--highlight);
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    
+    .add-element-btn:hover, .add-attribute-btn:hover, .add-text-btn:hover {
+      background-color: var(--medium-gray);
+    }
+    
+    .remove-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      background-color: var(--dark-gray);
+      color: var(--error);
+      border: 1px solid var(--highlight);
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    
+    .remove-btn:hover {
+      background-color: var(--medium-gray);
+    }
+    
+    .wysiwyg-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--highlight);
+    }
+    
+    .wysiwyg-header h2 {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .header-actions {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .error-message {
+      color: var(--error);
+      margin-top: 8px;
+      font-size: 0.9rem;
+    }
+    
+    select {
+      background-color: var(--dark-gray);
+      color: var(--text);
+      border: 1px solid var(--highlight);
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+    
+    input[type="text"] {
+      background-color: var(--dark-gray);
+      color: var(--text);
+      border: 1px solid var(--highlight);
+      padding: 4px 8px;
+      border-radius: 4px;
+      width: 100%;
+    }
+    
+    .xml-comment {
+      color: #6c757d;
+      font-style: italic;
+      margin: 4px 0;
+    }
+    
+    .xml-cdata {
+      color: #d63384;
+      background-color: var(--dark-gray);
+      border: 1px solid var(--highlight);
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-family: monospace;
+      margin: 4px 0;
+    }
+    
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      visibility: hidden;
+      opacity: 0;
+      transition: visibility 0s linear 0.25s, opacity 0.25s;
+    }
+    
+    .modal.visible {
+      visibility: visible;
+      opacity: 1;
+      transition-delay: 0s;
+    }
+    
+    .modal-content {
+      background-color: var(--dark-gray);
+      padding: 24px;
+      border-radius: 8px;
+      width: 400px;
+      max-width: 90%;
+    }
+    
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 24px;
+    }
+    
+    .form-group {
+      margin-bottom: 16px;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 4px;
+    }
+    
+    .attributes-container {
+      margin-bottom: 8px;
+    }
+    
+    .attribute-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+    
+    .attribute-row button {
+      padding: 4px 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="editor-container">
+      <div id="monaco-editor"></div>
+    </div>
+    
+    <div class="wysiwyg-container">
+      <div class="wysiwyg-header">
+        <h2><i class="fas fa-code"></i> XML Editor</h2>
+        <div class="header-actions">
+          <button id="format-xml" class="primary"><i class="fas fa-align-left"></i> Format</button>
+          <button id="save-xml" class="primary"><i class="fas fa-save"></i> Save to URL</button>
+        </div>
+      </div>
+      
+      <div id="xml-content"></div>
+      
+      <div class="xml-controls">
+        <button id="apply-changes" style="display: none;">Apply Changes</button>
+        <button id="reset-xml"><i class="fas fa-sync-alt"></i> Reset</button>
+      </div>
+      
+      <div id="error-container" class="error-message"></div>
+    </div>
+  </div>
+  
+  <!-- Add Element Modal -->
+  <div class="modal" id="add-element-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3><i class="fas fa-plus-circle"></i> Add Element</h3>
+        <button class="close-modal"><i class="fas fa-times"></i></button>
+      </div>
+      
+      <div class="form-group">
+        <label for="element-name">Element Name</label>
+        <input type="text" id="element-name" placeholder="Enter element name">
+      </div>
+      
+      <div class="form-group">
+        <label>Attributes</label>
+        <div id="attributes-list" class="attributes-container"></div>
+        <button id="add-attribute-row" type="button"><i class="fas fa-plus"></i> Add Attribute</button>
+      </div>
+      
+      <div class="form-group">
+        <label for="element-content">Text Content (optional)</label>
+        <input type="text" id="element-content" placeholder="Enter text content">
+      </div>
+      
+      <div class="modal-footer">
+        <button class="close-modal"><i class="fas fa-times"></i> Cancel</button>
+        <button id="confirm-add-element" class="primary"><i class="fas fa-plus"></i> Add</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Add Attribute Modal -->
+  <div class="modal" id="add-attribute-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3><i class="fas fa-plus-circle"></i> Add Attribute</h3>
+        <button class="close-modal"><i class="fas fa-times"></i></button>
+      </div>
+      
+      <div class="form-group">
+        <label for="attribute-name">Attribute Name</label>
+        <input type="text" id="attribute-name" placeholder="Enter attribute name">
+      </div>
+      
+      <div class="form-group">
+        <label for="attribute-value">Attribute Value</label>
+        <input type="text" id="attribute-value" placeholder="Enter attribute value">
+      </div>
+      
+      <div class="modal-footer">
+        <button class="close-modal"><i class="fas fa-times"></i> Cancel</button>
+        <button id="confirm-add-attribute" class="primary"><i class="fas fa-plus"></i> Add</button>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    // Configure Monaco editor
+    require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs' }});
+    require(['vs/editor/editor.main'], function() {
+      // Define AMOLED theme
+      monaco.editor.defineTheme('amoled-theme', {
+        base: 'vs-dark',
+        inherit: true,
+        rules: [
+          { token: 'string.xml', foreground: 'ba68c8' },
+          { token: 'tag.xml', foreground: '64b5f6' },
+          { token: 'attribute.name.xml', foreground: 'a5d6a7' },
+          { token: 'attribute.value.xml', foreground: 'ba68c8' },
+          { token: 'delimiter.xml', foreground: 'e0e0e0' },
+          { token: 'comment.xml', foreground: '6c757d' }
+        ],
+        colors: {
+          'editor.background': '#000000',
+          'editor.foreground': '#e0e0e0',
+          'editorCursor.foreground': '#bb86fc',
+          'editor.lineHighlightBackground': '#121212',
+          'editorLineNumber.foreground': '#4d4d4d',
+          'editor.selectionBackground': '#2d2d2d',
+          'editor.inactiveSelectionBackground': '#1e1e1e',
+          'editorSuggestWidget.background': '#121212',
+          'editorSuggestWidget.border': '#2d2d2d',
+          'editorSuggestWidget.foreground': '#e0e0e0',
+          'editorSuggestWidget.selectedBackground': '#2d2d2d',
+          'editorSuggestWidget.highlightForeground': '#bb86fc',
+          'editorWidget.background': '#121212',
+          'editorWidget.border': '#2d2d2d'
+        }
+      });
+      
+      // Create Monaco editor
+      const editor = monaco.editor.create(document.getElementById('monaco-editor'), {
+        value: `<?xml version="1.0" encoding="UTF-8"?>\n<root>\n  <person id="1">\n    <name>John Doe</name>\n    <age>30</age>\n    <email>john@example.com</email>\n    <address>\n      <city>New York</city>\n      <country>USA</country>\n    </address>\n  </person>\n  <person id="2">\n    <name>Jane Smith</name>\n    <age>28</age>\n    <email>jane@example.com</email>\n    <address>\n      <city>London</city>\n      <country>UK</country>\n    </address>\n  </person>\n</root>`,
+        language: 'xml',
+        theme: 'amoled-theme',
+        automaticLayout: true,
+        minimap: {
+          enabled: false
+        },
+        scrollBeyondLastLine: false,
+        formatOnPaste: true,
+        tabSize: 2
+      });
+      
+      // DOM Elements
+      const xmlContentElement = document.getElementById('xml-content');
+      const formatXmlButton = document.getElementById('format-xml');
+      const saveXmlButton = document.getElementById('save-xml');
+      const applyChangesButton = document.getElementById('apply-changes');
+      const resetXmlButton = document.getElementById('reset-xml');
+      const errorContainer = document.getElementById('error-container');
+      const addElementModal = document.getElementById('add-element-modal');
+      const addAttributeModal = document.getElementById('add-attribute-modal');
+      const closeModalButtons = document.querySelectorAll('.close-modal');
+      
+      // Element modal elements
+      const elementNameInput = document.getElementById('element-name');
+      const attributesList = document.getElementById('attributes-list');
+      const addAttributeRowButton = document.getElementById('add-attribute-row');
+      const elementContentInput = document.getElementById('element-content');
+      const confirmAddElementButton = document.getElementById('confirm-add-element');
+      
+      // Attribute modal elements
+      const attributeNameInput = document.getElementById('attribute-name');
+      const attributeValueInput = document.getElementById('attribute-value');
+      const confirmAddAttributeButton = document.getElementById('confirm-add-attribute');
+      
+      let xmlDoc = null;
+      let currentNode = null;
+      let isUpdatingEditor = false;
+      
+      // Initialize editor
+      initializeWysiwygEditor();
+      
+      // Load from URL hash if available
+      if (window.location.hash) {
+        try {
+          const encodedXml = window.location.hash.substring(1);
+          const xmlString = decodeURIComponent(encodedXml);
+          editor.setValue(xmlString);
+          parseXmlAndRender(xmlString);
+        } catch (e) {
+          errorContainer.textContent = `Error loading from URL: ${e.message}`;
+        }
+      }
+      
+      // Set up real-time sync from monaco to WYSIWYG
+      editor.onDidChangeModelContent(() => {
+        if (!isUpdatingEditor) {
+          try {
+            const value = editor.getValue();
+            parseXmlAndRender(value);
+            errorContainer.textContent = '';
+          } catch (e) {
+            errorContainer.textContent = `XML Parse Error: ${e.message}`;
+          }
+        }
+      });
+      
+      formatXmlButton.addEventListener('click', () => {
+        try {
+          const value = editor.getValue();
+          const formattedXml = formatXml(value);
+          editor.setValue(formattedXml);
+        } catch (e) {
+          errorContainer.textContent = `XML Parse Error: ${e.message}`;
+        }
+      });
+      
+      saveXmlButton.addEventListener('click', () => {
+        try {
+          const xmlString = serializeXml(xmlDoc);
+          const encodedXml = encodeURIComponent(xmlString);
+          window.location.hash = encodedXml;
+          
+          // Show feedback to user
+          const savedMessage = document.createElement('div');
+          savedMessage.style.position = 'fixed';
+          savedMessage.style.top = '20px';
+          savedMessage.style.left = '50%';
+          savedMessage.style.transform = 'translateX(-50%)';
+          savedMessage.style.backgroundColor = 'var(--accent)';
+          savedMessage.style.color = 'var(--amoled-black)';
+          savedMessage.style.padding = '10px 20px';
+          savedMessage.style.borderRadius = '4px';
+          savedMessage.style.zIndex = '9999';
+          savedMessage.innerHTML = '<i class="fas fa-check-circle"></i> XML saved to URL';
+          document.body.appendChild(savedMessage);
+          
+          setTimeout(() => {
+            savedMessage.style.opacity = '0';
+            savedMessage.style.transition = 'opacity 0.5s';
+            setTimeout(() => {
+              document.body.removeChild(savedMessage);
+            }, 500);
+          }, 2000);
+        } catch (e) {
+          errorContainer.textContent = `Error saving to URL: ${e.message}`;
+        }
+      });
+      
+      resetXmlButton.addEventListener('click', () => {
+        initializeWysiwygEditor();
+      });
+      
+      addAttributeRowButton.addEventListener('click', () => {
+        addAttributeInputRow('', '');
+      });
+      
+      confirmAddElementButton.addEventListener('click', () => {
+        addNewElement();
+      });
+      
+      confirmAddAttributeButton.addEventListener('click', () => {
+        addNewAttribute();
+      });
+      
+      closeModalButtons.forEach(button => {
+        button.addEventListener('click', () => {
+          closeAllModals();
+        });
+      });
+      
+      function initializeWysiwygEditor() {
+        try {
+          const xmlText = editor.getValue();
+          parseXmlAndRender(xmlText);
+          errorContainer.textContent = '';
+        } catch (e) {
+          errorContainer.textContent = `XML Parse Error: ${e.message}`;
+          xmlContentElement.innerHTML = '<p>Invalid XML</p>';
+        }
+      }
+      
+      function parseXmlAndRender(xmlText) {
+        const parser = new DOMParser();
+        xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+        
+        // Check for parsing errors
+        const parserError = xmlDoc.querySelector('parsererror');
+        if (parserError) {
+          throw new Error(parserError.textContent);
+        }
+        
+        renderXml();
+      }
+      
+      function renderXml() {
+        xmlContentElement.innerHTML = '';
+        
+        // If it's an XML document with a root element
+        if (xmlDoc.documentElement) {
+          renderNode(xmlDoc.documentElement, xmlContentElement, []);
+        }
+      }
+      
+      function renderNode(node, container, path) {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          renderElement(node, container, path);
+        } else if (node.nodeType === Node.TEXT_NODE) {
+          renderTextNode(node, container, path);
+        } else if (node.nodeType === Node.COMMENT_NODE) {
+          renderComment(node, container, path);
+        } else if (node.nodeType === Node.CDATA_SECTION_NODE) {
+          renderCDATA(node, container, path);
+        }
+      }
+      
+      function renderElement(element, container, path) {
+        const nodePath = [...path, element.nodeName];
+        
+        const elementDiv = document.createElement('div');
+        elementDiv.className = 'xml-node';
+        elementDiv.dataset.path = nodePath.join('/');
+        elementDiv.dataset.nodeType = 'element';
+        
+        const headerElement = document.createElement('div');
+        headerElement.className = 'xml-element-header';
+        
+        // Add collapse icon if the element has children
+        if (element.children.length > 0 || element.childNodes.length > element.children.length) {
+          const collapseIcon = document.createElement('span');
+          collapseIcon.className = 'collapse-icon';
+          collapseIcon.innerHTML = '<i class="fas fa-chevron-down"></i>';
+          headerElement.appendChild(collapseIcon);
+          
+          headerElement.addEventListener('click', () => {
+            elementDiv.classList.toggle('collapsed');
+          });
+        }
+        
+        // Element name
+        const nameElement = document.createElement('span');
+        nameElement.className = 'xml-element-name';
+        nameElement.textContent = element.nodeName;
+        headerElement.appendChild(nameElement);
+        
+        // Attributes container
+        const attributesContainer = document.createElement('div');
+        attributesContainer.className = 'xml-attributes';
+        attributesContainer.style.display = 'inline-flex';
+        attributesContainer.style.flexWrap = 'wrap';
+        attributesContainer.style.gap = '4px';
+        
+        // Render attributes
+        Array.from(element.attributes).forEach(attr => {
+          const attributeDiv = document.createElement('div');
+          attributeDiv.className = 'xml-attribute';
+          attributeDiv.dataset.name = attr.name;
+          
+          const attributeName = document.createElement('span');
+          attributeName.className = 'xml-attribute-name';
+          attributeName.textContent = attr.name + '=';
+          attributeDiv.appendChild(attributeName);
+          
+          const attributeValue = document.createElement('div');
+          attributeValue.className = 'xml-attribute-value';
+          attributeValue.contentEditable = true;
+          attributeValue.textContent = attr.value;
+          attributeValue.dataset.name = attr.name;
+          
+          attributeValue.addEventListener('blur', () => {
+            updateAttributeValue(element, attr.name, attributeValue.textContent);
+          });
+          
+          attributeValue.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              attributeValue.blur();
+            }
+          });
+          
+          attributeDiv.appendChild(attributeValue);
+          
+          // Add remove button for attribute
+          const removeBtn = document.createElement('button');
+          removeBtn.className = 'remove-btn';
+          removeBtn.innerHTML = '<i class="fas fa-times"></i>';
+          removeBtn.title = 'Remove Attribute';
+          removeBtn.style.marginLeft = '4px';
+          removeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            removeAttribute(element, attr.name);
+          });
+          
+          attributeDiv.appendChild(removeBtn);
+          attributesContainer.appendChild(attributeDiv);
+        });
+        
+        headerElement.appendChild(attributesContainer);
+        
+        // Action buttons container
+        const actionButtons = document.createElement('div');
+        actionButtons.className = 'action-buttons';
+        
+        // Add Element button
+        const addElementBtn = document.createElement('button');
+        addElementBtn.className = 'add-element-btn';
+        addElementBtn.innerHTML = '<i class="fas fa-plus"></i>';
+        addElementBtn.title = 'Add Child Element';
+        addElementBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openAddElementModal(element);
+        });
+        actionButtons.appendChild(addElementBtn);
+        
+        // Add Attribute button
+        const addAttributeBtn = document.createElement('button');
+        addAttributeBtn.className = 'add-attribute-btn';
+        addAttributeBtn.innerHTML = '<i class="fas fa-tag"></i>';
+        addAttributeBtn.title = 'Add Attribute';
+        addAttributeBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openAddAttributeModal(element);
+        });
+        actionButtons.appendChild(addAttributeBtn);
+        
+        // Add Text button
+        const addTextBtn = document.createElement('button');
+        addTextBtn.className = 'add-text-btn';
+        addTextBtn.innerHTML = '<i class="fas fa-font"></i>';
+        addTextBtn.title = 'Add Text Content';
+        addTextBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          addTextNode(element);
+        });
+        actionButtons.appendChild(addTextBtn);
+        
+        // Remove Element button
+        if (element !== xmlDoc.documentElement) {
+          const removeBtn = document.createElement('button');
+          removeBtn.className = 'remove-btn';
+          removeBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
+          removeBtn.title = 'Remove Element';
+          removeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            removeElement(element);
+          });
+          actionButtons.appendChild(removeBtn);
+        }
+        
+        headerElement.appendChild(actionButtons);
+        elementDiv.appendChild(headerElement);
+        
+        // Children container
+        const childrenContainer = document.createElement('div');
+        childrenContainer.className = 'xml-children';
+        
+        // Render child nodes
+        let hasTextContent = false;
+        Array.from(element.childNodes).forEach(child => {
+          if (child.nodeType === Node.TEXT_NODE && child.nodeValue.trim()) {
+            hasTextContent = true;
+            renderTextNode(child, childrenContainer, nodePath);
+          } else if (child.nodeType === Node.ELEMENT_NODE) {
+            renderNode(child, childrenContainer, nodePath);
+          } else if (child.nodeType === Node.COMMENT_NODE) {
+            renderComment(child, childrenContainer, nodePath);
+          } else if (child.nodeType === Node.CDATA_SECTION_NODE) {
+            renderCDATA(child, childrenContainer, nodePath);
+          }
+        });
+        
+        elementDiv.appendChild(childrenContainer);
+        container.appendChild(elementDiv);
+      }
+      
+      function renderTextNode(textNode, container, path) {
+        // Skip whitespace-only text nodes
+        if (!textNode.nodeValue.trim()) return;
+        
+        const textContainer = document.createElement('div');
+        textContainer.className = 'xml-node';
+        textContainer.dataset.nodeType = 'text';
+        
+        const textElement = document.createElement('div');
+        textElement.className = 'xml-text-content';
+        textElement.contentEditable = true;
+        textElement.textContent = textNode.nodeValue;
+        
+        textElement.addEventListener('blur', () => {
+          updateTextContent(textNode, textElement.textContent);
+        });
+        
+        textElement.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            textElement.blur();
+          }
+        });
+        
+        const textHeader = document.createElement('div');
+        textHeader.className = 'xml-element-header';
+        textHeader.style.justifyContent = 'space-between';
+        
+        const textLabel = document.createElement('span');
+        textLabel.style.color = '#999';
+        textLabel.style.fontSize = '0.8rem';
+        textLabel.textContent = 'Text';
+        textHeader.appendChild(textLabel);
+        
+        // Add action buttons
+        const actionButtons = document.createElement('div');
+        actionButtons.className = 'action-buttons';
+        
+        // Remove text button
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'remove-btn';
+        removeBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
+        removeBtn.title = 'Remove Text';
+        removeBtn.addEventListener('click', () => {
+          removeTextNode(textNode);
+        });
+        
+        actionButtons.appendChild(removeBtn);
+        textHeader.appendChild(actionButtons);
+        
+        textContainer.appendChild(textHeader);
+        textContainer.appendChild(textElement);
+        container.appendChild(textContainer);
+      }
+      
+      function renderComment(commentNode, container, path) {
+        const commentContainer = document.createElement('div');
+        commentContainer.className = 'xml-node';
+        commentContainer.dataset.nodeType = 'comment';
+        
+        const commentElement = document.createElement('div');
+        commentElement.className = 'xml-comment';
+        commentElement.contentEditable = true;
+        commentElement.textContent = `<!-- ${commentNode.nodeValue} -->`;
+        
+        commentElement.addEventListener('blur', () => {
+          // Extract comment content from <!-- comment -->
+          const commentContent = commentElement.textContent.replace(/^<!--\s*|\s*-->$/g, '');
+          updateCommentContent(commentNode, commentContent);
+        });
+        
+        const commentHeader = document.createElement('div');
+        commentHeader.className = 'xml-element-header';
+        commentHeader.style.justifyContent = 'space-between';
+        
+        const commentLabel = document.createElement('span');
+        commentLabel.style.color = '#999';
+        commentLabel.style.fontSize = '0.8rem';
+        commentLabel.textContent = 'Comment';
+        commentHeader.appendChild(commentLabel);
+        
+        // Add action buttons
+        const actionButtons = document.createElement('div');
+        actionButtons.className = 'action-buttons';
+        
+        // Remove comment button
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'remove-btn';
+        removeBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
+        removeBtn.title = 'Remove Comment';
+        removeBtn.addEventListener('click', () => {
+          removeCommentNode(commentNode);
+        });
+        
+        actionButtons.appendChild(removeBtn);
+        commentHeader.appendChild(actionButtons);
+        
+        commentContainer.appendChild(commentHeader);
+        commentContainer.appendChild(commentElement);
+        container.appendChild(commentContainer);
+      }
+      
+      function renderCDATA(cdataNode, container, path) {
+        const cdataContainer = document.createElement('div');
+        cdataContainer.className = 'xml-node';
+        cdataContainer.dataset.nodeType = 'cdata';
+        
+        const cdataElement = document.createElement('div');
+        cdataElement.className = 'xml-cdata';
+        cdataElement.contentEditable = true;
+        cdataElement.textContent = `<![CDATA[${cdataNode.nodeValue}]]>`;
+        
+        cdataElement.addEventListener('blur', () => {
+          // Extract CDATA content from <![CDATA[ content ]]>
+          const cdataContent = cdataElement.textContent.replace(/^<!\[CDATA\[|\]\]>$/g, '');
+          updateCDATAContent(cdataNode, cdataContent);
+        });
+        
+        const cdataHeader = document.createElement('div');
+        cdataHeader.className = 'xml-element-header';
+        cdataHeader.style.justifyContent = 'space-between';
+        
+        const cdataLabel = document.createElement('span');
+        cdataLabel.style.color = '#999';
+        cdataLabel.style.fontSize = '0.8rem';
+        cdataLabel.textContent = 'CDATA';
+        cdataHeader.appendChild(cdataLabel);
+        
+        // Add action buttons
+        const actionButtons = document.createElement('div');
+        actionButtons.className = 'action-buttons';
+        
+        // Remove CDATA button
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'remove-btn';
+        removeBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
+        removeBtn.title = 'Remove CDATA';
+        removeBtn.addEventListener('click', () => {
+          removeCDATANode(cdataNode);
+        });
+        
+        actionButtons.appendChild(removeBtn);
+        cdataHeader.appendChild(actionButtons);
+        
+        cdataContainer.appendChild(cdataHeader);
+        cdataContainer.appendChild(cdataElement);
+        container.appendChild(cdataContainer);
+      }
+      
+      function updateTextContent(textNode, newContent) {
+        textNode.nodeValue = newContent;
+        updateMonacoFromXml();
+      }
+      
+      function updateCommentContent(commentNode, newContent) {
+        commentNode.nodeValue = newContent;
+        updateMonacoFromXml();
+      }
+      
+      function updateCDATAContent(cdataNode, newContent) {
+        cdataNode.nodeValue = newContent;
+        updateMonacoFromXml();
+      }
+      
+      function updateAttributeValue(element, attrName, newValue) {
+        element.setAttribute(attrName, newValue);
+        updateMonacoFromXml();
+      }
+      
+      function removeAttribute(element, attrName) {
+        element.removeAttribute(attrName);
+        updateMonacoFromXml();
+      }
+      
+      function removeElement(element) {
+        element.parentNode.removeChild(element);
+        updateMonacoFromXml();
+      }
+      
+      function removeTextNode(textNode) {
+        textNode.parentNode.removeChild(textNode);
+        updateMonacoFromXml();
+      }
+      
+      function removeCommentNode(commentNode) {
+        commentNode.parentNode.removeChild(commentNode);
+        updateMonacoFromXml();
+      }
+      
+      function removeCDATANode(cdataNode) {
+        cdataNode.parentNode.removeChild(cdataNode);
+        updateMonacoFromXml();
+      }
+      
+      function addTextNode(element) {
+        const newText = xmlDoc.createTextNode('New text');
+        element.appendChild(newText);
+        updateMonacoFromXml();
+      }
+      
+      function updateMonacoFromXml() {
+        try {
+          isUpdatingEditor = true;
+          const xmlString = serializeXml(xmlDoc);
+          editor.setValue(xmlString);
+          errorContainer.textContent = '';
+          setTimeout(() => {
+            isUpdatingEditor = false;
+          }, 0);
+        } catch (e) {
+          errorContainer.textContent = `Error updating editor: ${e.message}`;
+          isUpdatingEditor = false;
+        }
+        
+        // Re-render the XML
+        renderXml();
+      }
+      
+      function openAddElementModal(parentElement) {
+        currentNode = parentElement;
+        
+        // Clear previous values
+        elementNameInput.value = '';
+        attributesList.innerHTML = '';
+        elementContentInput.value = '';
+        
+        // Add one empty attribute row by default
+        addAttributeInputRow('', '');
+        
+        // Show the modal
+        addElementModal.classList.add('visible');
+        elementNameInput.focus();
+      }
+      
+      function openAddAttributeModal(element) {
+        currentNode = element;
+        
+        // Clear previous values
+        attributeNameInput.value = '';
+        attributeValueInput.value = '';
+        
+        // Show the modal
+        addAttributeModal.classList.add('visible');
+        attributeNameInput.focus();
+      }
+      
+      function closeAllModals() {
+        addElementModal.classList.remove('visible');
+        addAttributeModal.classList.remove('visible');
+      }
+      
+      function addAttributeInputRow(name, value) {
+        const attributeRow = document.createElement('div');
+        attributeRow.className = 'attribute-row';
+        
+        const nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.className = 'attribute-name-input';
+        nameInput.placeholder = 'Name';
+        nameInput.value = name;
+        nameInput.style.flex = '1';
+        
+        const valueInput = document.createElement('input');
+        valueInput.type = 'text';
+        valueInput.className = 'attribute-value-input';
+        valueInput.placeholder = 'Value';
+        valueInput.value = value;
+        valueInput.style.flex = '1';
+        
+        const removeButton = document.createElement('button');
+        removeButton.type = 'button';
+        removeButton.innerHTML = '<i class="fas fa-times"></i>';
+        removeButton.addEventListener('click', () => {
+          attributesList.removeChild(attributeRow);
+        });
+        
+        attributeRow.appendChild(nameInput);
+        attributeRow.appendChild(valueInput);
+        attributeRow.appendChild(removeButton);
+        
+        attributesList.appendChild(attributeRow);
+      }
+      
+      function addNewElement() {
+        const elementName = elementNameInput.value.trim();
+        
+        if (!elementName) {
+          alert('Element name is required');
+          return;
+        }
+        
+        try {
+          // Create the new element
+          const newElement = xmlDoc.createElement(elementName);
+          
+          // Add attributes
+          const attributeRows = attributesList.querySelectorAll('.attribute-row');
+          attributeRows.forEach(row => {
+            const nameInput = row.querySelector('.attribute-name-input');
+            const valueInput = row.querySelector('.attribute-value-input');
+            
+            const name = nameInput.value.trim();
+            const value = valueInput.value;
+            
+            if (name) {
+              newElement.setAttribute(name, value);
+            }
+          });
+          
+          // Add text content if provided
+          const textContent = elementContentInput.value.trim();
+          if (textContent) {
+            newElement.textContent = textContent;
+          }
+          
+          // Add the new element to the parent
+          currentNode.appendChild(newElement);
+          
+          // Update the editor
+          updateMonacoFromXml();
+          
+          // Close the modal
+          closeAllModals();
+        } catch (e) {
+          errorContainer.textContent = `Error adding element: ${e.message}`;
+        }
+      }
+      
+      function addNewAttribute() {
+        const attributeName = attributeNameInput.value.trim();
+        const attributeValue = attributeValueInput.value;
+        
+        if (!attributeName) {
+          alert('Attribute name is required');
+          return;
+        }
+        
+        try {
+          // Add the attribute to the element
+          currentNode.setAttribute(attributeName, attributeValue);
+          
+          // Update the editor
+          updateMonacoFromXml();
+          
+          // Close the modal
+          closeAllModals();
+        } catch (e) {
+          errorContainer.textContent = `Error adding attribute: ${e.message}`;
+        }
+      }
+      
+      function serializeXml(doc) {
+        const serializer = new XMLSerializer();
+        return serializer.serializeToString(doc);
+      }
+      
+      function formatXml(xml) {
+        // Parse the XML
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(xml, 'text/xml');
+        
+        // Check for parsing errors
+        const parserError = doc.querySelector('parsererror');
+        if (parserError) {
+          throw new Error(parserError.textContent);
+        }
+        
+        // Function to format XML with indentation
+        function formatXmlRecursive(node, level) {
+          let result = '';
+          
+          // Add indentation
+          const indent = '  '.repeat(level);
+          
+          // Process different node types
+          switch (node.nodeType) {
+            case Node.ELEMENT_NODE:
+              // Element node
+              result += indent + '<' + node.nodeName;
+              
+              // Add attributes
+              for (let i = 0; i < node.attributes.length; i++) {
+                const attr = node.attributes[i];
+                result += ' ' + attr.name + '="' + attr.value + '"';
+              }
+              
+              // Check if the element has children
+              if (node.childNodes.length === 0) {
+                result += '/>\n';
+              } else {
+                result += '>\n';
+                
+                // Process child nodes
+                for (let i = 0; i < node.childNodes.length; i++) {
+                  result += formatXmlRecursive(node.childNodes[i], level + 1);
+                }
+                
+                result += indent + '</' + node.nodeName + '>\n';
+              }
+              break;
+              
+            case Node.TEXT_NODE:
+              // Text node (ignore whitespace-only nodes)
+              const text = node.nodeValue.trim();
+              if (text) {
+                result += indent + text + '\n';
+              }
+              break;
+              
+            case Node.COMMENT_NODE:
+              // Comment node
+              result += indent + '<!-- ' + node.nodeValue + ' -->\n';
+              break;
+              
+            case Node.CDATA_SECTION_NODE:
+              // CDATA section
+              result += indent + '<![CDATA[' + node.nodeValue + ']]>\n';
+              break;
+          }
+          
+          return result;
+        }
+        
+        // Start formatting from the document element
+        let result = '<?xml version="1.0" encoding="UTF-8"?>\n';
+        result += formatXmlRecursive(doc.documentElement, 0);
+        
+        return result;
+      }
+    });
+  </script>
+</body>
+</html>
